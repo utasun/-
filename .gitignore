@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+
+# IDE
+.vscode/
+.idea/
+
+# Scraped data & caches
+data/cache/
+data/raw/
+*.sqlite
+*.sqlite-journal
+*.db
+
+# OS
+.DS_Store
+Thumbs.db
