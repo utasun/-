@@ -1,0 +1,82 @@
+name: daily-paper-notifier
+
+on:
+  schedule:
+    - cron: "0 23 * * *"   # JST 08:00 = UTC 23:00 (前日)
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "dry-run (投稿/アップロードしない)"
+        type: boolean
+        default: false
+      only_sources:
+        description: "ソース絞り込み (例: jstage cinii)"
+        type: string
+        default: ""
+      limit:
+        description: "最大通知件数"
+        type: string
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Write GCP credentials
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+        run: |
+          if [ -z "${GCP_SA_KEY}" ]; then
+            echo "GCP_SA_KEY secret is empty; translation/Drive will be skipped." >&2
+          else
+            printf '%s' "$GCP_SA_KEY" > "$RUNNER_TEMP/gcp.json"
+            echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/gcp.json" >> "$GITHUB_ENV"
+          fi
+
+      - name: Run notifier
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          DISCORD_CHANNEL_ID: ${{ secrets.DISCORD_CHANNEL_ID }}
+          GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
+        run: |
+          args=("-v")
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            args+=("--dry-run")
+          fi
+          if [ -n "${{ github.event.inputs.only_sources }}" ]; then
+            args+=(--only-sources ${{ github.event.inputs.only_sources }})
+          fi
+          if [ -n "${{ github.event.inputs.limit }}" ]; then
+            args+=(--limit "${{ github.event.inputs.limit }}")
+          fi
+          python -m src.main "${args[@]}"
+
+      - name: Commit state
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add state/
+          if git diff --cached --quiet; then
+            echo "No state changes"
+          else
+            git commit -m "chore(state): update seen/preference/history $(date -u +%Y-%m-%dT%H:%MZ)"
+            git push origin HEAD:${{ github.ref_name }}
+          fi

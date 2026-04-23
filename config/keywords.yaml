@@ -1,0 +1,30 @@
+# 建設 × 先端/応用技術 (AT) の検索キーワード
+# collect.py がソースごとにクエリをこのリストで回す
+# 必要に応じて追加・削除して構わない
+
+queries:
+  - "BIM 建設"
+  - "ICT施工"
+  - "建設DX"
+  - "i-Construction"
+  - "建設ロボット"
+  - "AI 施工管理"
+  - "ドローン 測量"
+  - "自動化施工"
+  - "デジタルツイン 建設"
+  - "点群 建築"
+
+# 各ソースの取得件数 (1クエリあたり)
+limits:
+  cinii: 20
+  jstage: 20
+  scholar: 10
+
+# 取得対象の発行年範囲 (直近N日以内の論文を優先。古い論文は除外)
+freshness_days: 30
+
+# 関連度スコアの閾値 (cold start 終了後に有効化)
+score_threshold: 0.05
+
+# cold start 判定: liked + disliked がこの件数未満なら全件通す
+cold_start_min_feedback: 30
